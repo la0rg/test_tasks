@@ -20,7 +20,10 @@ func main() {
 	signal.Notify(stop, os.Interrupt)
 
 	// init
-	node := server.Node{}
+	node, err := server.NewNode()
+	if err != nil {
+		log.Fatal(err)
+	}
 	node.StartHttpServer()
 
 	// stop

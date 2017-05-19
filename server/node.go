@@ -16,6 +16,19 @@ const (
 type Node struct {
 	// TODO: cache etc.
 	httpServer *http.Server
+	membership *Membership
+}
+
+func NewNode() (*Node, error) {
+	membership := NewMembership()
+	// TODO: identify node addr on start (or programmatically)
+	err := membership.AddNode("127.0.0.1:9090")
+	if err != nil {
+		return nil, err
+	}
+	return &Node{
+		membership: membership,
+	}, nil
 }
 
 func (n *Node) StartHttpServer() {
