@@ -9,8 +9,8 @@ import (
 )
 
 const (
-	CONN_PORT = "8090"
-	CONN_HOST = "0.0.0.0"
+	ConnPort = "8090"
+	ConnHost = "0.0.0.0"
 )
 
 type Node struct {
@@ -19,7 +19,7 @@ type Node struct {
 }
 
 func (n *Node) StartHttpServer() {
-	addr := CONN_HOST + ":" + CONN_PORT
+	addr := ConnHost + ":" + ConnPort
 	n.httpServer = &http.Server{
 		Addr:         addr,
 		ReadTimeout:  10 * time.Second,
