@@ -28,7 +28,7 @@ func NewNode(address string) (*Node, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "Not able to resolve node address")
 	}
-	err = membership.AddNode(addr, address)
+	err = membership.AddNode(address)
 	if err != nil {
 		return nil, err
 	}
@@ -40,13 +40,15 @@ func NewNode(address string) (*Node, error) {
 
 func (n *Node) setupRouting(r *httprouter.Router) {
 	// cache
-	r.GET("/", n.get)
-	r.PUT("/", n.update)
-	r.POST("/", n.set)
-	r.DELETE("/", n.remove)
+	r.GET("/", n.Get)
+	r.PUT("/", n.Update)
+	r.POST("/", n.Set)
+	r.DELETE("/", n.Remove)
 
 	// configuration
-	r.GET("/membership", n.membership)
+	r.GET("/membership", n.Membership)
+	r.GET("/membership/endpoint", n.Endpoint)
+	r.POST("/membership/endpoint", n.AddEndpoint)
 }
 
 func (n *Node) StartHttpServer() {
@@ -78,26 +80,63 @@ func (n *Node) StopHttpServer() {
 	}
 }
 
-func (n *Node) get(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func (n *Node) Get(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	log.Debug("Processing get request")
 }
 
-func (n *Node) set(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func (n *Node) Set(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	log.Debug("Processing set request")
 }
 
-func (n *Node) update(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func (n *Node) Update(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	log.Debug("Processing update request")
 }
 
-func (n *Node) remove(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func (n *Node) Remove(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	log.Debug("Processing remove request")
 }
 
-func (n *Node) membership(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func (n *Node) Membership(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	v, err := json.Marshal(n.mbrship)
 	if err != nil {
 		log.Error(errors.Wrap(err, "Problem while marshaling membership struct"))
 	}
+	w.Write(v)
+}
+
+func (n *Node) Endpoint(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	v, err := json.Marshal(n.mbrship.Endpoints)
+	if err != nil {
+		log.Error(errors.Wrap(err, "Problem while marshaling membership struct"))
+	}
+	w.Write(v)
+}
+
+type RestResponse struct {
+	Success bool
+	Errors  []string
+}
+
+func (n *Node) AddEndpoint(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	decoder := json.NewDecoder(r.Body)
+	var endpoints []Endpoint
+	err := decoder.Decode(&endpoints)
+	if err != nil {
+		panic(err)
+	}
+	defer r.Body.Close()
+	resp := &RestResponse{
+		Errors: make([]string, 0),
+	}
+	for _, endpoint := range endpoints {
+		err := n.mbrship.AddNode(endpoint.Address.String())
+		if err != nil {
+			resp.Errors = append(resp.Errors, err.Error())
+		}
+	}
+	if len(resp.Errors) == 0 {
+		resp.Success = true
+	}
+	v, _ := json.Marshal(resp)
 	w.Write(v)
 }

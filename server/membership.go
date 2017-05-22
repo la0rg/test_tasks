@@ -5,6 +5,7 @@ import (
 
 	"github.com/la0rg/test_tasks/hash"
 	"github.com/la0rg/test_tasks/vector_clock"
+	"github.com/pkg/errors"
 )
 
 type Membership struct {
@@ -28,11 +29,15 @@ func (m *Membership) addEndpoint(e *Endpoint) {
 }
 
 type Endpoint struct {
-	Address net.Addr
+	Address net.TCPAddr
 }
 
-func (m *Membership) AddNode(addr net.Addr, name string) error {
-	m.addEndpoint(&Endpoint{Address: addr})
+func (m *Membership) AddNode(name string) error {
+	addr, err := net.ResolveTCPAddr("tcp", name)
+	if err != nil {
+		return errors.Wrap(err, "Not able to resolve node address")
+	}
+	m.addEndpoint(&Endpoint{Address: *addr})
 	m.ring.AddNode(name)
 	return nil
 }
