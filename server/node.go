@@ -112,11 +112,6 @@ func (n *Node) Endpoint(w http.ResponseWriter, r *http.Request, _ httprouter.Par
 	w.Write(v)
 }
 
-type RestResponse struct {
-	Success bool
-	Errors  []string
-}
-
 func (n *Node) AddEndpoint(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	decoder := json.NewDecoder(r.Body)
 	var endpoints []Endpoint
@@ -125,18 +120,12 @@ func (n *Node) AddEndpoint(w http.ResponseWriter, r *http.Request, _ httprouter.
 		panic(err)
 	}
 	defer r.Body.Close()
-	resp := &RestResponse{
-		Errors: make([]string, 0),
-	}
+	resp := NewRestResponse()
 	for _, endpoint := range endpoints {
 		err := n.mbrship.AddNode(endpoint.Address.String())
 		if err != nil {
-			resp.Errors = append(resp.Errors, err.Error())
+			resp.Error(err)
 		}
 	}
-	if len(resp.Errors) == 0 {
-		resp.Success = true
-	}
-	v, _ := json.Marshal(resp)
-	w.Write(v)
+	w.Write(resp.Build())
 }
