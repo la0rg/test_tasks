@@ -1,7 +1,6 @@
 package hash
 
 import (
-	"fmt"
 	"hash/crc32"
 )
 
@@ -62,14 +61,12 @@ func (r *Ring) findNodeByHash(hash uint32) *Node {
 	for current != nil {
 		if current.hash <= hash {
 			if current.right != nil {
-				fmt.Println("go right")
 				current = current.right
 			} else {
 				break
 			}
 		} else {
 			if current.left != nil {
-				fmt.Println("go left")
 				current = current.left
 			} else {
 				return current
@@ -94,10 +91,9 @@ func (r *Ring) findNodeByHash(hash uint32) *Node {
 
 	if successor != nil {
 		return successor
-	} else {
-		// for the most right node there is no successor -> close the ring
-		return r.left
 	}
+	// for the most right node there is no successor -> close the ring
+	return r.left
 }
 
 type Node struct {

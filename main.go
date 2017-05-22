@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"os"
 	"os/signal"
 
@@ -16,11 +17,20 @@ func setup() {
 
 func main() {
 	setup()
+
+	// flags
+	addr := flag.String("addr", "", "Public addres (ip:port) of the current node.")
+	flag.Parse()
+	if *addr == "" {
+		flag.Usage()
+		log.Fatal("Public address cannot be empty.")
+	}
+
 	stop := make(chan os.Signal)
 	signal.Notify(stop, os.Interrupt)
 
 	// init
-	node, err := server.NewNode()
+	node, err := server.NewNode(*addr)
 	if err != nil {
 		log.Fatal(err)
 	}

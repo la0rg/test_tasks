@@ -6,25 +6,25 @@ import (
 
 type VC struct {
 	mx    sync.Mutex
-	store map[string]uint64 // TODO: add timestamps
+	Store map[string]uint64 // TODO: add timestamps
 }
 
 func NewVc() *VC {
 	return &VC{
-		store: make(map[string]uint64),
+		Store: make(map[string]uint64),
 	}
 }
 
 func (vc *VC) Incr(node string) {
 	vc.mx.Lock()
-	vc.store[node] = vc.store[node] + 1
+	vc.Store[node] = vc.Store[node] + 1
 	vc.mx.Unlock()
 }
 
 func (vc *VC) Get(node string) uint64 {
 	vc.mx.Lock()
 	defer vc.mx.Unlock()
-	return vc.store[node]
+	return vc.Store[node]
 }
 
 func (vc *VC) happensBefore(other *VC) bool {
@@ -35,10 +35,10 @@ func (vc *VC) happensBefore(other *VC) bool {
 
 	// all the values are less or equal and at least one node on the the other clock is bigger
 	before := false
-	for node := range allKeys(vc.store, other.store) {
-		if vc.store[node] > other.store[node] {
+	for node := range allKeys(vc.Store, other.Store) {
+		if vc.Store[node] > other.Store[node] {
 			return false
-		} else if vc.store[node] < other.store[node] {
+		} else if vc.Store[node] < other.Store[node] {
 			before = true
 		}
 	}
@@ -52,8 +52,8 @@ func Merge(vc1, vc2 *VC) *VC {
 	vc2.mx.Lock()
 	defer vc2.mx.Unlock()
 
-	for node := range allKeys(vc1.store, vc2.store) {
-		result.store[node] = max(vc1.store[node], vc2.store[node])
+	for node := range allKeys(vc1.Store, vc2.Store) {
+		result.Store[node] = max(vc1.Store[node], vc2.Store[node])
 	}
 	return result
 }

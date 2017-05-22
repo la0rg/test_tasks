@@ -5,36 +5,34 @@ import (
 
 	"github.com/la0rg/test_tasks/hash"
 	"github.com/la0rg/test_tasks/vector_clock"
-	"github.com/pkg/errors"
 )
 
 type Membership struct {
+	name      string
 	ring      hash.Ring  // partitioning and replication ranges are based on the Ring
-	endpoints []Endpoint // the state that is gonna be transfferd with gossip
-	vc        *vector_clock.VC
+	Endpoints []Endpoint // the state that is gonna be transfferd with gossip
+	Vc        *vector_clock.VC
 }
 
-func NewMembership() *Membership {
+func NewMembership(name string) *Membership {
 	return &Membership{
-		endpoints: make([]Endpoint, 1),
-		vc:        vector_clock.NewVc(),
+		name:      name,
+		Endpoints: make([]Endpoint, 0),
+		Vc:        vector_clock.NewVc(),
 	}
 }
 
 func (m *Membership) addEndpoint(e *Endpoint) {
-	m.endpoints = append(m.endpoints, *e)
+	m.Endpoints = append(m.Endpoints, *e)
+	m.Vc.Incr(m.name)
 }
 
 type Endpoint struct {
-	address net.Addr
+	Address net.Addr
 }
 
-func (m *Membership) AddNode(name string) error {
-	addr, err := net.ResolveTCPAddr("tcp", name)
-	if err != nil {
-		errors.Wrap(err, "Not able to resolve node address. The node will not be added to the cluster.")
-	}
-	m.addEndpoint(&Endpoint{address: addr})
+func (m *Membership) AddNode(addr net.Addr, name string) error {
+	m.addEndpoint(&Endpoint{Address: addr})
 	m.ring.AddNode(name)
 	return nil
 }

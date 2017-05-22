@@ -2,51 +2,70 @@ package server
 
 import (
 	"context"
+	"net"
 	"net/http"
+	"strconv"
 	"time"
 
-	log "github.com/sirupsen/logrus"
-)
+	"encoding/json"
 
-const (
-	ConnPort = "8090"
-	ConnHost = "0.0.0.0"
+	"github.com/julienschmidt/httprouter"
+	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 )
 
 type Node struct {
 	// TODO: cache etc.
 	httpServer *http.Server
-	membership *Membership
+	mbrship    *Membership
+	httpPort   int
 }
 
-func NewNode() (*Node, error) {
-	membership := NewMembership()
+func NewNode(address string) (*Node, error) {
+	membership := NewMembership(address)
 	// TODO: identify node addr on start (or programmatically)
-	err := membership.AddNode("127.0.0.1:9090")
+	addr, err := net.ResolveTCPAddr("tcp", address)
+	if err != nil {
+		return nil, errors.Wrap(err, "Not able to resolve node address")
+	}
+	err = membership.AddNode(addr, address)
 	if err != nil {
 		return nil, err
 	}
 	return &Node{
-		membership: membership,
+		mbrship:  membership,
+		httpPort: addr.Port,
 	}, nil
 }
 
+func (n *Node) setupRouting(r *httprouter.Router) {
+	// cache
+	r.GET("/", n.get)
+	r.PUT("/", n.update)
+	r.POST("/", n.set)
+	r.DELETE("/", n.remove)
+
+	// configuration
+	r.GET("/membership", n.membership)
+}
+
 func (n *Node) StartHttpServer() {
-	addr := ConnHost + ":" + ConnPort
+	addr := ":" + strconv.Itoa(n.httpPort)
+	router := httprouter.New()
+	n.setupRouting(router)
 	n.httpServer = &http.Server{
 		Addr:         addr,
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
+		Handler:      router,
 	}
-	http.HandleFunc("/", methodRouter)
 
 	go func() {
-		log.Infof("Start listening on: %s", addr)
+		log.Infof("Start listening on %s", addr)
 		if err := n.httpServer.ListenAndServe(); err != nil {
 			log.Fatal(err)
 		}
 	}()
-
 }
 
 func (n *Node) StopHttpServer() {
@@ -59,34 +78,26 @@ func (n *Node) StopHttpServer() {
 	}
 }
 
-func methodRouter(w http.ResponseWriter, r *http.Request) {
-	log.Debugf("Handle HTTP request with method: %s", r.Method)
-	switch r.Method {
-	case http.MethodGet:
-		get(w, r)
-	case http.MethodPost:
-		set(w, r)
-	case http.MethodPut:
-		update(w, r)
-	case http.MethodDelete:
-		remove(w, r)
-	default:
-		http.Error(w, "Method is not supported", http.StatusMethodNotAllowed)
-	}
-}
-
-func get(w http.ResponseWriter, r *http.Request) {
+func (n *Node) get(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	log.Debug("Processing get request")
 }
 
-func set(w http.ResponseWriter, r *http.Request) {
+func (n *Node) set(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	log.Debug("Processing set request")
 }
 
-func update(w http.ResponseWriter, r *http.Request) {
+func (n *Node) update(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	log.Debug("Processing update request")
 }
 
-func remove(w http.ResponseWriter, r *http.Request) {
+func (n *Node) remove(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	log.Debug("Processing remove request")
+}
+
+func (n *Node) membership(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	v, err := json.Marshal(n.mbrship)
+	if err != nil {
+		log.Error(errors.Wrap(err, "Problem while marshaling membership struct"))
+	}
+	w.Write(v)
 }

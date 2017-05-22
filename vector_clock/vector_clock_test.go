@@ -7,7 +7,7 @@ import (
 
 func TestNewVc(t *testing.T) {
 	newVc := NewVc()
-	if newVc == nil || newVc.store == nil {
+	if newVc == nil || newVc.Store == nil {
 		t.Error("VectorClock itself as well as its fields should not be nil.")
 	}
 }
@@ -41,14 +41,14 @@ func TestMerge(t *testing.T) {
 		{
 			args: args{
 				&VC{
-					store: map[string]uint64{
+					Store: map[string]uint64{
 						"A": 3,
 						"B": 4,
 						"C": 1,
 					},
 				},
 				&VC{
-					store: map[string]uint64{
+					Store: map[string]uint64{
 						"A": 0,
 						"B": 0,
 						"C": 2,
@@ -56,7 +56,7 @@ func TestMerge(t *testing.T) {
 				},
 			},
 			want: &VC{
-				store: map[string]uint64{
+				Store: map[string]uint64{
 					"A": 3,
 					"B": 4,
 					"C": 2,
@@ -66,19 +66,19 @@ func TestMerge(t *testing.T) {
 		{
 			args: args{
 				&VC{
-					store: map[string]uint64{
+					Store: map[string]uint64{
 						"A": 3,
 					},
 				},
 				&VC{
-					store: map[string]uint64{
+					Store: map[string]uint64{
 						"B": 1,
 						"C": 2,
 					},
 				},
 			},
 			want: &VC{
-				store: map[string]uint64{
+				Store: map[string]uint64{
 					"A": 3,
 					"B": 1,
 					"C": 2,
@@ -108,14 +108,14 @@ func TestCompare(t *testing.T) {
 		{
 			args: args{
 				&VC{
-					store: map[string]uint64{
+					Store: map[string]uint64{
 						"A": 3,
 						"B": 4,
 						"C": 1,
 					},
 				},
 				&VC{
-					store: map[string]uint64{
+					Store: map[string]uint64{
 						"A": 0,
 						"B": 0,
 						"C": 2,
@@ -127,14 +127,14 @@ func TestCompare(t *testing.T) {
 		{
 			args: args{
 				&VC{
-					store: map[string]uint64{
+					Store: map[string]uint64{
 						"A": 1,
 						"B": 2,
 						"C": 1,
 					},
 				},
 				&VC{
-					store: map[string]uint64{
+					Store: map[string]uint64{
 						"A": 0,
 						"B": 1,
 						"C": 1,
@@ -146,13 +146,13 @@ func TestCompare(t *testing.T) {
 		{
 			args: args{
 				&VC{
-					store: map[string]uint64{
+					Store: map[string]uint64{
 						"B": 1,
 						"C": 1,
 					},
 				},
 				&VC{
-					store: map[string]uint64{
+					Store: map[string]uint64{
 						"A": 2,
 						"B": 4,
 						"C": 1,
@@ -164,13 +164,13 @@ func TestCompare(t *testing.T) {
 		{
 			args: args{
 				&VC{
-					store: map[string]uint64{
+					Store: map[string]uint64{
 						"B": 3,
 						"C": 3,
 					},
 				},
 				&VC{
-					store: map[string]uint64{
+					Store: map[string]uint64{
 						"A": 2,
 						"B": 4,
 						"C": 1,
@@ -191,14 +191,14 @@ func TestCompare(t *testing.T) {
 
 func TestCorrolary(t *testing.T) {
 	vc1 := &VC{
-		store: map[string]uint64{
+		Store: map[string]uint64{
 			"a": 1,
 			"b": 2,
 		},
 	}
 
 	vc2 := &VC{
-		store: map[string]uint64{
+		Store: map[string]uint64{
 			"c": 4,
 			"b": 5,
 		},
