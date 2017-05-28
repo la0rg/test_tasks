@@ -2,23 +2,28 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"net/http"
 	"strconv"
 	"time"
 
+	"google.golang.org/grpc"
+
 	"encoding/json"
 
 	"github.com/julienschmidt/httprouter"
+	"github.com/la0rg/test_tasks/rpc"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
 
 type Node struct {
 	// TODO: cache etc.
-	httpServer *http.Server
-	mbrship    *Membership
-	httpPort   int
+	httpServer   *http.Server
+	gossipServer rpc.GossipServiceServer
+	mbrship      *Membership
+	httpPort     int
 }
 
 func NewNode(address string) (*Node, error) {
@@ -51,7 +56,7 @@ func (n *Node) setupRouting(r *httprouter.Router) {
 	r.POST("/membership/endpoint", n.AddEndpoint)
 }
 
-func (n *Node) StartHttpServer() {
+func (n *Node) StartHttpServer() error {
 	addr := ":" + strconv.Itoa(n.httpPort)
 	router := httprouter.New()
 	n.setupRouting(router)
@@ -68,16 +73,56 @@ func (n *Node) StartHttpServer() {
 			log.Fatal(err)
 		}
 	}()
+	return nil
 }
 
-func (n *Node) StopHttpServer() {
+func (n *Node) StopHttpServer() error {
 	log.Infof("Shutting down the http server...")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	err := n.httpServer.Shutdown(ctx)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
+	return nil
+}
+
+func (n *Node) StartGossipServer(port int) error {
+	n.gossipServer = GossipServer{}
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	if err != nil {
+		return err
+	}
+	grpcServer := grpc.NewServer()
+	rpc.RegisterGossipServiceServer(grpcServer, n.gossipServer)
+	log.Debugf("Start listening gossip on %d", port)
+	go grpcServer.Serve(lis)
+	return nil
+}
+
+func (n *Node) Seed(address string) error {
+	if address == "" {
+		return nil
+	}
+	_, err := net.ResolveTCPAddr("tcp", address)
+	if err != nil {
+		return errors.Wrap(err, "Not able to resolve seed address")
+	}
+	go func() {
+		conn, err := grpc.Dial(address, []grpc.DialOption{grpc.WithInsecure()}...)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer conn.Close()
+		client := rpc.NewGossipServiceClient(conn)
+		log.Debug("Start request for membership")
+		membership, err := client.ReqForMembership(context.Background(), &rpc.GossipRequest{})
+		if err != nil {
+			log.Error(errors.Wrap(err, "Problems on seeding round"))
+		}
+		log.Printf("membership = %+v\n", membership)
+	}()
+	return nil
 }
 
 func (n *Node) Get(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {

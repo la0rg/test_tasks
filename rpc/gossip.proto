@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package rpc;
+
+import "rpc/vector_clock.proto";
+
+service GossipService {
+    rpc ReqForMembership (GossipRequest) returns (Membership);    
+} 
+
+message Membership {
+    message Endpoint {
+        bytes ip = 1;
+        int32 port = 2;
+    }
+    repeated Endpoint endpoints = 1;
+    VC vector_clock = 2; 
+}
+
+message GossipRequest {
+}

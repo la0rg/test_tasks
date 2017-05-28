@@ -19,12 +19,10 @@ func main() {
 	setup()
 
 	// flags
-	addr := flag.String("addr", "", "Public addres (ip:port) of the current node.")
+	addr := flag.String("addr", "", "Public addres(ip:port) of the current node.")
+	seed := flag.String("seed", "", "Address of the seed server.")
+	port := flag.Int("internal_port", 7770, "Port for inter-node communication")
 	flag.Parse()
-	if *addr == "" {
-		flag.Usage()
-		log.Fatal("Public address cannot be empty.")
-	}
 
 	stop := make(chan os.Signal)
 	signal.Notify(stop, os.Interrupt)
@@ -34,7 +32,18 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	node.StartHttpServer()
+	err = node.StartHttpServer()
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = node.Seed(*seed)
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = node.StartGossipServer(*port) // TODO: hardcoded port
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	// stop
 	<-stop
