@@ -30,16 +30,23 @@ func main() {
 	// init
 	node, err := server.NewNode(*addr)
 	fatalErr(err)
-	err = node.StartHttpServer()
+
+	// http
+	httpServer := server.NewHttpServer(node)
+	err = httpServer.Start()
 	fatalErr(err)
-	err = node.Seed(*seed)
+
+	// gossip
+	gossipServer := server.NewGossipServer(node)
+	err = gossipServer.Seed(*seed)
 	fatalErr(err)
-	err = node.StartGossipServer(*port) // TODO: hardcoded port
+	err = gossipServer.Start(*port)
+	fatalErr(err)
 
 	// stop
 	<-stop
 	log.Info("Shutting down the node..")
-	node.StopHttpServer()
+	httpServer.Stop()
 }
 
 func fatalErr(err error) {
