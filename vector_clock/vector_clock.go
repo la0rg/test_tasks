@@ -27,6 +27,16 @@ func (vc *VC) Get(node string) uint64 {
 	return vc.Store[node]
 }
 
+func (vc *VC) GetStore() map[string]uint64 {
+	res := make(map[string]uint64)
+	vc.mx.Lock()
+	defer vc.mx.Unlock()
+	for k, v := range vc.Store {
+		res[k] = v
+	}
+	return res
+}
+
 func (vc *VC) happensBefore(other *VC) bool {
 	vc.mx.Lock()
 	defer vc.mx.Unlock()

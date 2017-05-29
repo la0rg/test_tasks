@@ -29,24 +29,21 @@ func main() {
 
 	// init
 	node, err := server.NewNode(*addr)
-	if err != nil {
-		log.Fatal(err)
-	}
+	fatalErr(err)
 	err = node.StartHttpServer()
-	if err != nil {
-		log.Fatal(err)
-	}
+	fatalErr(err)
 	err = node.Seed(*seed)
-	if err != nil {
-		log.Fatal(err)
-	}
+	fatalErr(err)
 	err = node.StartGossipServer(*port) // TODO: hardcoded port
-	if err != nil {
-		log.Fatal(err)
-	}
 
 	// stop
 	<-stop
 	log.Info("Shutting down the node..")
 	node.StopHttpServer()
+}
+
+func fatalErr(err error) {
+	if err != nil {
+		log.Fatal(err)
+	}
 }

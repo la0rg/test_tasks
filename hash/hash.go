@@ -18,6 +18,11 @@ func (r *Ring) AddNode(name string) *Node {
 
 }
 
+func (r *Ring) Clear() {
+	r.head = nil
+	r.left = nil
+}
+
 func (r *Ring) addNode(node *Node) *Node {
 
 	current := r.head

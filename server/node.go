@@ -20,6 +20,7 @@ import (
 
 type Node struct {
 	// TODO: cache etc.
+	name         string
 	httpServer   *http.Server
 	gossipServer rpc.GossipServiceServer
 	mbrship      *Membership
@@ -38,6 +39,7 @@ func NewNode(address string) (*Node, error) {
 		return nil, err
 	}
 	return &Node{
+		name:     address,
 		mbrship:  membership,
 		httpPort: addr.Port,
 	}, nil
@@ -88,7 +90,9 @@ func (n *Node) StopHttpServer() error {
 }
 
 func (n *Node) StartGossipServer(port int) error {
-	n.gossipServer = GossipServer{}
+	n.gossipServer = GossipServer{
+		membership: n.mbrship,
+	}
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		return err
@@ -104,10 +108,12 @@ func (n *Node) Seed(address string) error {
 	if address == "" {
 		return nil
 	}
+	// validate address
 	_, err := net.ResolveTCPAddr("tcp", address)
 	if err != nil {
 		return errors.Wrap(err, "Not able to resolve seed address")
 	}
+	// request membership status from the seed node
 	go func() {
 		conn, err := grpc.Dial(address, []grpc.DialOption{grpc.WithInsecure()}...)
 		if err != nil {
@@ -116,11 +122,12 @@ func (n *Node) Seed(address string) error {
 		defer conn.Close()
 		client := rpc.NewGossipServiceClient(conn)
 		log.Debug("Start request for membership")
-		membership, err := client.ReqForMembership(context.Background(), &rpc.GossipRequest{})
+		membership, err := client.ReqForMembership(context.Background(), n.mbrship.ToRpc())
 		if err != nil {
 			log.Error(errors.Wrap(err, "Problems on seeding round"))
 		}
 		log.Printf("membership = %+v\n", membership)
+		n.mbrship.MergeRpc(membership)
 	}()
 	return nil
 }

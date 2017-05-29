@@ -2,8 +2,10 @@ package server
 
 import (
 	"net"
+	"strconv"
 
 	"github.com/la0rg/test_tasks/hash"
+	"github.com/la0rg/test_tasks/rpc"
 	"github.com/la0rg/test_tasks/vector_clock"
 	"github.com/pkg/errors"
 )
@@ -40,4 +42,47 @@ func (m *Membership) AddNode(name string) error {
 	m.addEndpoint(&Endpoint{Address: *addr})
 	m.ring.AddNode(name)
 	return nil
+}
+
+func (m *Membership) ToRpc() *rpc.Membership {
+	res := &rpc.Membership{
+		Endpoints: make([]*rpc.Membership_Endpoint, 0),
+		VectorClock: &rpc.VC{
+			Store: m.Vc.GetStore(),
+		},
+	}
+
+	for _, v := range m.Endpoints {
+		endpoint := &rpc.Membership_Endpoint{Ip: v.Address.IP, Port: int32(v.Address.Port)}
+		res.Endpoints = append(res.Endpoints, endpoint)
+	}
+
+	return res
+}
+
+func (m *Membership) MergeRpc(rpcMbr *rpc.Membership) {
+	vc := &vector_clock.VC{Store: rpcMbr.VectorClock.Store}
+	endpoints := make([]Endpoint, 0)
+	for _, endpoint := range rpcMbr.Endpoints {
+		endpoints = append(endpoints, Endpoint{net.TCPAddr{IP: endpoint.GetIp(), Port: int(endpoint.GetPort())}})
+	}
+	switch vector_clock.Compare(m.Vc, vc) {
+	case -1:
+		// if VC of current node is staled from rpc VC then use rpc Membership as node membership
+		m.Endpoints = endpoints
+		m.Vc = vc
+		m.ring.Clear()
+		for _, endpoint := range endpoints {
+			m.ring.AddNode(string(endpoint.Address.IP) + ":" + strconv.Itoa(endpoint.Address.Port))
+		}
+	case 0:
+		// if VCs are not comparible than merge nodes of both memberships
+		for _, endpoint := range endpoints {
+			m.Endpoints = append(m.Endpoints, endpoint)
+			m.ring.AddNode(string(endpoint.Address.IP) + ":" + strconv.Itoa(endpoint.Address.Port))
+		}
+		new_vc := vector_clock.Merge(m.Vc, vc)
+		new_vc.Incr(m.name)
+		m.Vc = new_vc
+	}
 }

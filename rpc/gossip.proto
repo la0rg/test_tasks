@@ -5,7 +5,10 @@ package rpc;
 import "rpc/vector_clock.proto";
 
 service GossipService {
-    rpc ReqForMembership (GossipRequest) returns (Membership);    
+    // Request paremeter should be used only for the new nodes connecting to the seed node
+    // to make the seed node aware of them.
+    // Any gossip request for membership should be requested with default-membership (empty)
+    rpc ReqForMembership (Membership) returns (Membership);    
 } 
 
 message Membership {
@@ -15,7 +18,4 @@ message Membership {
     }
     repeated Endpoint endpoints = 1;
     VC vector_clock = 2; 
-}
-
-message GossipRequest {
 }
