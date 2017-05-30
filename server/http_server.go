@@ -109,7 +109,7 @@ func (s *HttpServer) AddEndpoint(w http.ResponseWriter, r *http.Request, _ httpr
 	defer r.Body.Close()
 	resp := NewRestResponse()
 	for _, endpoint := range endpoints {
-		err := s.mbrship.AddNode(endpoint.Address.String())
+		err := s.mbrship.AddNode(endpoint.Address.String(), endpoint.IPort)
 		if err != nil {
 			resp.Error(err)
 		}

@@ -78,6 +78,24 @@ func Compare(vc1, vc2 *VC) int {
 	}
 }
 
+func Equal(vc1, vc2 *VC) bool {
+	vc1.mx.Lock()
+	defer vc1.mx.Unlock()
+	vc2.mx.Lock()
+	defer vc2.mx.Unlock()
+
+	if len(vc1.Store) != len(vc2.Store) {
+		return false
+	}
+
+	for k, v := range vc1.Store {
+		if v2, ok := vc2.Store[k]; !ok || v != v2 {
+			return false
+		}
+	}
+	return true
+}
+
 func max(a, b uint64) uint64 {
 	if a > b {
 		return a
