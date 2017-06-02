@@ -189,6 +189,48 @@ func TestCompare(t *testing.T) {
 	}
 }
 
+func TestEqual(t *testing.T) {
+	vc1 := NewVc()
+	vc2 := NewVc()
+	if Equal(vc1, vc1) != true {
+		t.Error("Should be equal to itself")
+	}
+	if Equal(vc1, vc2) != true {
+		t.Error("Empty vector clocks should be equal")
+	}
+	vc1.Incr("node1")
+	if Equal(vc1, vc2) != false {
+		t.Error("VCs of different length shold not be equal")
+	}
+	vc2.Incr("node2")
+	if Equal(vc1, vc2) != false {
+		t.Error("All keys should be equal")
+	}
+	vc1.Incr("node1")
+	vc2.Incr("node1")
+	if Equal(vc1, vc2) != false {
+		t.Error("All values should be equal")
+	}
+	vc2.Incr("node1")
+	vc1.Incr("node2")
+	if Equal(vc1, vc2) != true {
+		t.Error("VCs are expected to be equal")
+	}
+
+}
+
+func TestGetStore(t *testing.T) {
+	vc := NewVc()
+	vc.Incr("Node")
+	store := vc.GetStore()
+	if &store == &(vc.Store) {
+		t.Error("Stores are expected to be different")
+	}
+	if v, ok := store["Node"]; !ok || v != 1 {
+		t.Error("Stores are expected to contain same values")
+	}
+}
+
 func TestCorrolary(t *testing.T) {
 	vc1 := &VC{
 		Store: map[string]uint64{

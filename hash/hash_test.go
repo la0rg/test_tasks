@@ -50,6 +50,7 @@ func TestFindNode(t *testing.T) {
 
 func TestFindNodeWithEmptyRing(t *testing.T) {
 	r := Ring{}
+	r.Clear()
 	if r.FindNode("test") != nil {
 		t.Error("Empty Ring should return nil")
 	}

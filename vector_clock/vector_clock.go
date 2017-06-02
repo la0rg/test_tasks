@@ -79,6 +79,9 @@ func Compare(vc1, vc2 *VC) int {
 }
 
 func Equal(vc1, vc2 *VC) bool {
+	if vc1 == vc2 {
+		return true
+	}
 	vc1.mx.Lock()
 	defer vc1.mx.Unlock()
 	vc2.mx.Lock()
