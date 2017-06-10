@@ -3,11 +3,13 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"io/ioutil"
 	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/julienschmidt/httprouter"
+	"github.com/la0rg/test_tasks/util"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
@@ -71,8 +73,22 @@ func (s *HttpServer) Get(w http.ResponseWriter, r *http.Request, _ httprouter.Pa
 	log.Debug("Processing get request")
 }
 
+type test_struct struct {
+	Value string
+}
+
 func (s *HttpServer) Set(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	log.Debug("Processing set request")
+	jsonBody, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+	key, value, err := util.ParseJson(jsonBody)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	log.Debugf("Set for the key: %s, following value: %v", key, value)
 }
 
 func (s *HttpServer) Update(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {

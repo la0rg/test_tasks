@@ -4,9 +4,9 @@ import "errors"
 
 type CacheValue struct {
 	cType       CType
-	stringValue string
-	listValue   []CValue
-	dictValue   map[CValue]CValue
+	StringValue string
+	ListValue   []CacheValue
+	DictValue   map[string]CacheValue
 }
 
 var (
@@ -20,47 +20,47 @@ func (c *CacheValue) GetType() CType {
 
 func (c *CacheValue) SetString(value string) {
 	c.cType = STRING
-	c.stringValue = value
+	c.StringValue = value
 }
 
 func (c *CacheValue) GetString() (string, error) {
 	if c.cType != STRING {
 		return "", ValueIsNotAccessable
 	}
-	return c.stringValue, nil
+	return c.StringValue, nil
 }
 
-func (c *CacheValue) SetList(value []CValue) {
+func (c *CacheValue) SetList(value []CacheValue) {
 	c.cType = LIST
-	c.listValue = value
+	c.ListValue = value
 }
 
-func (c *CacheValue) GetList() ([]CValue, error) {
+func (c *CacheValue) GetList() ([]CacheValue, error) {
 	if c.cType != LIST {
 		return nil, ValueIsNotAccessable
 	}
-	return c.listValue, nil
+	return c.ListValue, nil
 }
 
-func (c *CacheValue) SetDict(value map[CValue]CValue) {
+func (c *CacheValue) SetDict(value map[string]CacheValue) {
 	c.cType = DICT
-	c.dictValue = value
+	c.DictValue = value
 }
 
-func (c *CacheValue) GetDict() (map[CValue]CValue, error) {
+func (c *CacheValue) GetDict() (map[string]CacheValue, error) {
 	if c.cType != DICT {
 		return nil, ValueIsNotAccessable
 	}
-	return c.dictValue, nil
+	return c.DictValue, nil
 }
 
 func (c *CacheValue) Set(value interface{}) error {
 	switch v := value.(type) {
 	case string:
 		c.SetString(v)
-	case []CValue:
+	case []CacheValue:
 		c.SetList(v)
-	case map[CValue]CValue:
+	case map[string]CacheValue:
 		c.SetDict(v)
 	default:
 		return TypeIsNotSupported
