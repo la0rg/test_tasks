@@ -57,6 +57,24 @@ func (r *Ring) FindNode(key string) *Node {
 	return r.findNodeByHash(hash)
 }
 
+// The list of nodes that is responsible for storing a particular key.
+// To account for node failures, preference list contains more
+// than N nodes.
+// Preference list for a key is constructed by skipping positions in the
+// ring to ensure that the list contains only distinct physical nodes.
+func (r *Ring) FindPreferenceList(key string, replication int) []*Node {
+	node := r.FindNode(key)
+	preferenceList := make([]*Node, 0)
+	if node != nil {
+		preferenceList = append(preferenceList, node)
+		for len(preferenceList) < replication+1 {
+			node := r.findSuccessorNode(node)
+			preferenceList = append(preferenceList, node)
+		}
+	}
+	return preferenceList
+}
+
 func (r *Ring) findNodeByHash(hash uint32) *Node {
 	current := r.head
 
@@ -79,9 +97,21 @@ func (r *Ring) findNodeByHash(hash uint32) *Node {
 		}
 	}
 
-	var head, successor *Node = r.head, nil
 	// second step: search for the node successor
+	return r.findSuccessorNode(current)
+}
+
+func (r *Ring) findSuccessorNode(current *Node) *Node {
+	var head, successor *Node = r.head, nil
 	if current != nil {
+
+		// If right subtree of node is not nil, then succ lies in right subtree
+		if current.right != nil {
+			return minValue(current.right)
+		}
+
+		// Travel down the tree, if a node’s data is greater than root’s data then go right side,
+		// otherwise go to left side.
 		for head != nil {
 			if current.hash < head.hash {
 				successor = head
@@ -93,12 +123,18 @@ func (r *Ring) findNodeByHash(hash uint32) *Node {
 			}
 		}
 	}
-
 	if successor != nil {
 		return successor
 	}
 	// for the most right node there is no successor -> close the ring
 	return r.left
+}
+
+func minValue(node *Node) *Node {
+	for node.left != nil {
+		node = node.left
+	}
+	return node
 }
 
 type Node struct {
