@@ -71,6 +71,29 @@ func (s *HttpServer) Stop() error {
 
 func (s *HttpServer) Get(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	log.Debug("Processing get request")
+	key := r.URL.Query().Get("key")
+	if len(key) == 0 {
+		http.Error(w, "Parameter \"key\" should be specified", http.StatusBadRequest)
+		return
+	}
+	value, ok := s.cache.Get(key)
+	if !ok {
+		http.Error(w, "No value for the specified key", http.StatusNotFound)
+		return
+	}
+	ivalue, err := util.CacheValueToJson(&value)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	v, err := json.Marshal(ivalue)
+	if err != nil {
+		err = errors.Wrap(err, "Problem while marshaling CacheValue struct")
+		log.Error(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Write(v)
 }
 
 type test_struct struct {
@@ -82,6 +105,7 @@ func (s *HttpServer) Set(w http.ResponseWriter, r *http.Request, _ httprouter.Pa
 	jsonBody, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 	key, value, err := util.ParseJson(jsonBody)
 	if err != nil {
@@ -89,6 +113,7 @@ func (s *HttpServer) Set(w http.ResponseWriter, r *http.Request, _ httprouter.Pa
 		return
 	}
 	log.Debugf("Set for the key: %s, following value: %v", key, value)
+	s.cache.Set(key, *value, nil)
 }
 
 func (s *HttpServer) Update(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {

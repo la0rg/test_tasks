@@ -10,6 +10,47 @@ import (
 
 type SimpleCacheValue map[string]interface{}
 
+func CacheValueToJson(value *cache.CacheValue) (interface{}, error) {
+	switch value.GetType() {
+	case cache.STRING:
+		valueString, err := value.GetString()
+		if err == cache.ValueIsNotAccessable {
+			return nil, errors.New("CacheValue has invalid structure")
+		}
+		return valueString, nil
+	case cache.LIST:
+		valueList, err := value.GetList()
+		if err == cache.ValueIsNotAccessable {
+			return nil, errors.New("CacheValue has invalid structure")
+		}
+		list := make([]interface{}, len(valueList))
+		for i, v := range valueList {
+			iterValue, err := CacheValueToJson(&v)
+			if err != nil {
+				return nil, err
+			}
+			list[i] = iterValue
+		}
+		return list, nil
+	case cache.DICT:
+		valueDict, err := value.GetDict()
+		if err == cache.ValueIsNotAccessable {
+			return nil, errors.New("CacheValue has invalid structure")
+		}
+		dict := make(map[string]interface{}, len(valueDict))
+		for k, v := range valueDict {
+			iterValue, err := CacheValueToJson(&v)
+			if err != nil {
+				return nil, err
+			}
+			dict[k] = iterValue
+		}
+		return dict, nil
+	default:
+		return nil, errors.New("CacheValue with undefined type")
+	}
+}
+
 func ParseJson(source []byte) (string, *cache.CacheValue, error) {
 	var simpleCacheValue SimpleCacheValue
 	var cacheValue cache.CacheValue

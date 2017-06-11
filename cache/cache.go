@@ -8,11 +8,11 @@ import (
 
 type Cache struct {
 	mx    sync.Mutex
-	store map[string]CValue
+	store map[string]CacheValue
 }
 
 func NewCache() *Cache {
-	return &Cache{store: make(map[string]CValue)}
+	return &Cache{store: make(map[string]CacheValue)}
 }
 
 type CType uint8
@@ -23,27 +23,14 @@ const (
 	DICT
 )
 
-type CValue interface {
-	GetType() CType
-
-	SetString(value string)
-	GetString() string
-
-	SetList(value []CValue)
-	GetList() []CValue
-
-	SetDict(value map[CValue]CValue)
-	GetDict() map[CValue]CValue
-}
-
-func (c *Cache) Get(key string) (CValue, bool) {
+func (c *Cache) Get(key string) (CacheValue, bool) {
 	c.mx.Lock()
 	defer c.mx.Unlock()
 	v, ok := c.store[key]
 	return v, ok
 }
 
-func (c *Cache) Set(key string, value CValue, context *vector_clock.VC) {
+func (c *Cache) Set(key string, value CacheValue, context *vector_clock.VC) {
 	c.mx.Lock()
 	defer c.mx.Unlock()
 	c.store[key] = value
