@@ -31,6 +31,7 @@ func (s GossipServer) ReqForMembership(ctx context.Context, in *rpc.Membership) 
 	// node requests membership for the first time and pass its membership to the seed node
 	if endpoints := in.GetEndpoints(); len(endpoints) == 1 {
 		s.mbrship.MergeRpc(in)
+		log.Debug("Merging incoming membership from the connected new node")
 	}
 
 	log.Debug("Answering for ReqForMembership")
@@ -72,8 +73,8 @@ func (s GossipServer) gossipRoutine() {
 			select {
 			case <-ticker.C:
 				// Gossip with a random live node
-				if len(s.mbrship.Endpoints) > 1 {
-					addr := s.mbrship.RndLiveEndpoint().IAddress()
+				if rndEndpoint := s.mbrship.RndLiveEndpoint(); rndEndpoint != nil {
+					addr := rndEndpoint.IAddress()
 					log.Debugf("Start gossip communication %s", addr)
 					s.gossipRequest(addr, NewMembership(""))
 				}
@@ -104,12 +105,10 @@ func (s GossipServer) gossipRequest(address string, membership *Membership) erro
 		}
 		defer conn.Close()
 		client := rpc.NewGossipServiceClient(conn)
-		log.Debug("Start request for membership")
 		membership, err := client.ReqForMembership(context.Background(), membership.ToRpc())
 		if err != nil {
 			log.Error(errors.Wrap(err, "Problems on seeding round"))
 		}
-		log.Printf("membership = %+v\n", membership)
 		s.mbrship.MergeRpc(membership)
 	}()
 	return nil

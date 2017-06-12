@@ -4,31 +4,40 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
-	"strconv"
 
 	"github.com/la0rg/test_tasks/hash"
 	"github.com/la0rg/test_tasks/rpc"
 	"github.com/la0rg/test_tasks/vector_clock"
 	"github.com/pkg/errors"
+	"github.com/rs/xid"
 )
 
 type Membership struct {
-	Name      string
-	ring      hash.Ring  // partitioning and replication ranges are based on the Ring
-	Endpoints []Endpoint // the state that is gonna be transfferd with gossip
-	Vc        *vector_clock.VC
+	Name string
+
+	// Partitioning and replication ranges are based on the Ring
+	ring hash.Ring
+
+	// State that is gonna be transfferd with gossip
+	Endpoints []*Endpoint
+
+	// Several virtual nodes (virtual ids) may lead to the same Endpoint
+	// VNodes should contains pointers to the same instances as in the endpoints
+	VNodes map[string]*Endpoint
+	Vc     *vector_clock.VC
 }
 
 func NewMembership(name string) *Membership {
 	return &Membership{
 		Name:      name,
-		Endpoints: make([]Endpoint, 0),
+		Endpoints: make([]*Endpoint, 0),
+		VNodes:    make(map[string]*Endpoint, 0),
 		Vc:        vector_clock.NewVc(),
 	}
 }
 
 func (m *Membership) addEndpoint(e *Endpoint) {
-	m.Endpoints = append(m.Endpoints, *e)
+	m.Endpoints = append(m.Endpoints, e)
 	m.Vc.Incr(m.Name)
 }
 
@@ -37,6 +46,24 @@ type Endpoint struct {
 	Address net.TCPAddr
 	// Inter-node communication port
 	IPort int
+
+	// TODO: availability
+}
+
+func CompareEndpoints(e1, e2 Endpoint) bool {
+	if &e1 == &e2 {
+		return true
+	}
+	if e1.Address.Port != e2.Address.Port {
+		return false
+	}
+	if !e1.Address.IP.Equal(e2.Address.IP) {
+		return false
+	}
+	if e1.IPort != e2.IPort {
+		return false
+	}
+	return true
 }
 
 func (e *Endpoint) IAddress() string {
@@ -44,38 +71,62 @@ func (e *Endpoint) IAddress() string {
 }
 
 func (m *Membership) RndLiveEndpoint() *Endpoint {
-	available := make([]*Endpoint, 0)
+	available := make([]int, 0)
 	// filtering
 	for i := range m.Endpoints {
 		if m.Endpoints[i].Address.String() != m.Name {
-			available = append(available, &m.Endpoints[i])
+			available = append(available, i)
 		}
 	}
 
-	return available[rand.Intn(len(available))]
+	if len(available) > 0 {
+		return m.Endpoints[available[rand.Intn(len(available))]]
+	} else {
+		return nil
+	}
 }
 
-func (m *Membership) AddNode(name string, iport int) error {
+func (m *Membership) AddNode(name string, iport int, weight uint8) error {
 	addr, err := net.ResolveTCPAddr("tcp", name)
 	if err != nil {
 		return errors.Wrap(err, "Not able to resolve node address")
 	}
-	m.addEndpoint(&Endpoint{Address: *addr, IPort: iport})
-	m.ring.AddNode(name)
+	endpoint := &Endpoint{
+		Address: *addr,
+		IPort:   iport,
+	}
+	m.addEndpoint(endpoint)
+	for i := 0; i < int(weight); i++ {
+		virtualId := xid.New().String()
+		m.VNodes[virtualId] = endpoint
+		m.ring.AddNode(virtualId)
+	}
 	return nil
 }
 
 func (m *Membership) ToRpc() *rpc.Membership {
 	res := &rpc.Membership{
-		Endpoints: make([]*rpc.Membership_Endpoint, 0),
+		Endpoints: make([]*rpc.Membership_Endpoint, len(m.Endpoints)),
+		Vnodes:    make(map[string]*rpc.Membership_Endpoint, len(m.VNodes)),
 		VectorClock: &rpc.VC{
 			Store: m.Vc.GetStore(),
 		},
 	}
 
-	for _, v := range m.Endpoints {
-		endpoint := &rpc.Membership_Endpoint{Ip: v.Address.IP, Port: int32(v.Address.Port), Iport: int32(v.IPort)}
-		res.Endpoints = append(res.Endpoints, endpoint)
+	for i, v := range m.Endpoints {
+		res.Endpoints[i] = &rpc.Membership_Endpoint{
+			Ip:    v.Address.IP,
+			Port:  int32(v.Address.Port),
+			Iport: int32(v.IPort),
+		}
+	}
+
+	for k, v := range m.VNodes {
+		res.Vnodes[k] = &rpc.Membership_Endpoint{
+			Ip:    v.Address.IP,
+			Port:  int32(v.Address.Port),
+			Iport: int32(v.IPort),
+		}
 	}
 
 	return res
@@ -83,18 +134,29 @@ func (m *Membership) ToRpc() *rpc.Membership {
 
 func (m *Membership) MergeRpc(rpcMbr *rpc.Membership) {
 	vc := &vector_clock.VC{Store: rpcMbr.VectorClock.Store}
-	endpoints := make([]Endpoint, 0)
+	endpoints := make([]*Endpoint, 0)
 	for _, endpoint := range rpcMbr.Endpoints {
-		endpoints = append(endpoints, Endpoint{net.TCPAddr{IP: endpoint.GetIp(), Port: int(endpoint.GetPort())}, int(endpoint.GetIport())})
+		endpoints = append(endpoints, &Endpoint{
+			Address: net.TCPAddr{IP: endpoint.GetIp(), Port: int(endpoint.GetPort())},
+			IPort:   int(endpoint.GetIport()),
+		})
+	}
+	vnodes := make(map[string]Endpoint, len(rpcMbr.Vnodes))
+	for key, endpoint := range rpcMbr.Vnodes {
+		vnodes[key] = Endpoint{
+			Address: net.TCPAddr{IP: endpoint.GetIp(), Port: int(endpoint.GetPort())},
+			IPort:   int(endpoint.GetIport()),
+		}
 	}
 	switch vector_clock.Compare(m.Vc, vc) {
 	case -1:
 		// if VC of current node is staled from rpc VC then use rpc Membership as node membership
 		m.Endpoints = endpoints
+		m.VNodes = m.toMembershipEndpoints(vnodes)
 		m.Vc = vc
 		m.ring.Clear()
-		for _, endpoint := range endpoints {
-			m.ring.AddNode(string(endpoint.Address.IP) + ":" + strconv.Itoa(endpoint.Address.Port))
+		for key := range m.VNodes {
+			m.ring.AddNode(key)
 		}
 	case 0:
 		if vector_clock.Equal(m.Vc, vc) {
@@ -103,10 +165,50 @@ func (m *Membership) MergeRpc(rpcMbr *rpc.Membership) {
 		// if VCs are not comparible than merge nodes of both memberships
 		for _, endpoint := range endpoints {
 			m.Endpoints = append(m.Endpoints, endpoint)
-			m.ring.AddNode(string(endpoint.Address.IP) + ":" + strconv.Itoa(endpoint.Address.Port))
+		}
+		for key, endpoint := range m.toMembershipEndpoints(vnodes) {
+			m.VNodes[key] = endpoint
+			m.ring.AddNode(key)
 		}
 		new_vc := vector_clock.Merge(m.Vc, vc)
 		new_vc.Incr(m.Name)
 		m.Vc = new_vc
 	}
+}
+
+func Compare(mbr1, mbr2 Membership) bool {
+	if &mbr1 == &mbr2 {
+		return true
+	}
+	if len(mbr1.Endpoints) != len(mbr2.Endpoints) {
+		return false
+	}
+	if len(mbr1.VNodes) != len(mbr2.VNodes) {
+		return false
+	}
+	for i, v := range mbr1.Endpoints {
+		if mbr2.Endpoints[i] != v {
+			return false
+		}
+	}
+	for k, v := range mbr1.VNodes {
+		if mbr2.VNodes[k] != v {
+			return false
+		}
+	}
+	return true
+}
+
+func (m *Membership) toMembershipEndpoints(vnodes map[string]Endpoint) map[string]*Endpoint {
+	updated := make(map[string]*Endpoint, len(vnodes))
+l1:
+	for k, e := range vnodes {
+		for i := range m.Endpoints {
+			if CompareEndpoints(*m.Endpoints[i], e) {
+				updated[k] = m.Endpoints[i]
+				continue l1
+			}
+		}
+	}
+	return updated
 }

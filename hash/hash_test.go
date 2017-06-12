@@ -55,3 +55,5 @@ func TestFindNodeWithEmptyRing(t *testing.T) {
 		t.Error("Empty Ring should return nil")
 	}
 }
+
+// TODO: add test for preference list

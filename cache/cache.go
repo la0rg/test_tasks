@@ -8,11 +8,11 @@ import (
 
 type Cache struct {
 	mx    sync.Mutex
-	store map[string]CacheValue
+	store map[string]ClockedValue
 }
 
 func NewCache() *Cache {
-	return &Cache{store: make(map[string]CacheValue)}
+	return &Cache{store: make(map[string]ClockedValue)}
 }
 
 type CType uint8
@@ -23,15 +23,18 @@ const (
 	DICT
 )
 
-func (c *Cache) Get(key string) (CacheValue, bool) {
+func (c *Cache) Get(key string) (ClockedValue, bool) {
 	c.mx.Lock()
 	defer c.mx.Unlock()
 	v, ok := c.store[key]
 	return v, ok
 }
 
-func (c *Cache) Set(key string, value CacheValue, context *vector_clock.VC) {
+func (c *Cache) Set(key string, value *CacheValue, context *vector_clock.VC) {
 	c.mx.Lock()
 	defer c.mx.Unlock()
-	c.store[key] = value
+	c.store[key] = ClockedValue{
+		CacheValue: value,
+		VC:         context,
+	}
 }

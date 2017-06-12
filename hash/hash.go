@@ -1,8 +1,6 @@
 package hash
 
-import (
-	"hash/crc32"
-)
+import "hash/crc32"
 
 type Ring struct {
 	head *Node
@@ -62,14 +60,15 @@ func (r *Ring) FindNode(key string) *Node {
 // than N nodes.
 // Preference list for a key is constructed by skipping positions in the
 // ring to ensure that the list contains only distinct physical nodes.
-func (r *Ring) FindPreferenceList(key string, replication int) []*Node {
+func (r *Ring) FindPreferenceList(key string, replication int) []string {
 	node := r.FindNode(key)
-	preferenceList := make([]*Node, 0)
+	preferenceList := make([]string, 0)
 	if node != nil {
-		preferenceList = append(preferenceList, node)
+		preferenceList = append(preferenceList, node.name)
 		for len(preferenceList) < replication+1 {
 			node := r.findSuccessorNode(node)
-			preferenceList = append(preferenceList, node)
+			// TODO: add filtration based on node type (only physical, not virtual)
+			preferenceList = append(preferenceList, node.name)
 		}
 	}
 	return preferenceList

@@ -35,7 +35,8 @@ func (s *HttpServer) setupRouting(r *httprouter.Router) {
 	// configuration
 	r.GET("/membership", s.Membership)
 	r.GET("/membership/endpoint", s.Endpoint)
-	r.POST("/membership/endpoint", s.AddEndpoint)
+	// should not add endpoints manually (only connection via seed node)
+	//r.POST("/membership/endpoint", s.AddEndpoint)
 }
 
 func (s *HttpServer) Start() error {
@@ -81,7 +82,7 @@ func (s *HttpServer) Get(w http.ResponseWriter, r *http.Request, _ httprouter.Pa
 		http.Error(w, "No value for the specified key", http.StatusNotFound)
 		return
 	}
-	ivalue, err := util.CacheValueToJson(&value)
+	ivalue, err := util.CacheValueToJson(value.CacheValue)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -113,7 +114,7 @@ func (s *HttpServer) Set(w http.ResponseWriter, r *http.Request, _ httprouter.Pa
 		return
 	}
 	log.Debugf("Set for the key: %s, following value: %v", key, value)
-	s.cache.Set(key, *value, nil)
+	s.Node.Put(key, value)
 }
 
 func (s *HttpServer) Update(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
@@ -140,20 +141,20 @@ func (s *HttpServer) Endpoint(w http.ResponseWriter, r *http.Request, _ httprout
 	w.Write(v)
 }
 
-func (s *HttpServer) AddEndpoint(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	decoder := json.NewDecoder(r.Body)
-	var endpoints []Endpoint
-	err := decoder.Decode(&endpoints)
-	if err != nil {
-		panic(err)
-	}
-	defer r.Body.Close()
-	resp := NewRestResponse()
-	for _, endpoint := range endpoints {
-		err := s.mbrship.AddNode(endpoint.Address.String(), endpoint.IPort)
-		if err != nil {
-			resp.Error(err)
-		}
-	}
-	w.Write(resp.Build())
-}
+//func (s *HttpServer) AddEndpoint(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+//decoder := json.NewDecoder(r.Body)
+//var endpoints []Endpoint
+//err := decoder.Decode(&endpoints)
+//if err != nil {
+//panic(err)
+//}
+//defer r.Body.Close()
+//resp := NewRestResponse()
+//for _, endpoint := range endpoints {
+//err := s.mbrship.AddNode(endpoint.Address.String(), endpoint.IPort)
+//if err != nil {
+//resp.Error(err)
+//}
+//}
+//w.Write(resp.Build())
+//}
