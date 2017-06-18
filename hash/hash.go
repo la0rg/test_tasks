@@ -55,25 +55,6 @@ func (r *Ring) FindNode(key string) *Node {
 	return r.findNodeByHash(hash)
 }
 
-// The list of nodes that is responsible for storing a particular key.
-// To account for node failures, preference list contains more
-// than N nodes.
-// Preference list for a key is constructed by skipping positions in the
-// ring to ensure that the list contains only distinct physical nodes.
-func (r *Ring) FindPreferenceList(key string, replication int) []string {
-	node := r.FindNode(key)
-	preferenceList := make([]string, 0)
-	if node != nil {
-		preferenceList = append(preferenceList, node.name)
-		for len(preferenceList) < replication+1 {
-			node := r.findSuccessorNode(node)
-			// TODO: add filtration based on node type (only physical, not virtual)
-			preferenceList = append(preferenceList, node.name)
-		}
-	}
-	return preferenceList
-}
-
 func (r *Ring) findNodeByHash(hash uint32) *Node {
 	current := r.head
 
@@ -97,10 +78,10 @@ func (r *Ring) findNodeByHash(hash uint32) *Node {
 	}
 
 	// second step: search for the node successor
-	return r.findSuccessorNode(current)
+	return r.FindSuccessorNode(current)
 }
 
-func (r *Ring) findSuccessorNode(current *Node) *Node {
+func (r *Ring) FindSuccessorNode(current *Node) *Node {
 	var head, successor *Node = r.head, nil
 	if current != nil {
 
@@ -141,4 +122,8 @@ type Node struct {
 	hash  uint32
 	left  *Node
 	right *Node
+}
+
+func (n *Node) GetName() string {
+	return n.name
 }

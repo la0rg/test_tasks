@@ -1,6 +1,7 @@
 package server
 
 import (
+	"log"
 	"net"
 
 	"github.com/la0rg/test_tasks/cache"
@@ -51,8 +52,10 @@ func (n *Node) Put(key string, value *cache.CacheValue) {
 	// write localy
 	n.cache.Set(key, value, newVc)
 	// write to WRITETO - 1 nodes
-	preferenceList := n.mbrship.ring.FindPreferenceList(key, REPLICATION)
-	_ = preferenceList
+	preferenceList := n.mbrship.FindPreferenceList(key, REPLICATION)
+	for _, endpoint := range preferenceList {
+		log.Printf("endpoint = %+v\n", endpoint)
+	}
 	//for _, nodeName := range preferenceList {
 	//endpoint := n.mbrship.findEndpointByNodeName(nodeName)
 	//if endpoint == nil {

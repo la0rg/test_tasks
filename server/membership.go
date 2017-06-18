@@ -212,3 +212,25 @@ l1:
 	}
 	return updated
 }
+
+// The list of nodes that is responsible for storing a particular key.
+// To account for node failures, preference list contains more
+// than N nodes.
+// Preference list for a key is constructed by skipping positions in the
+// ring to ensure that the list contains only distinct physical nodes.
+func (m *Membership) FindPreferenceList(key string, replication int) []*Endpoint {
+	set := make(map[*Endpoint]bool, 0)
+	preferenceList := make([]*Endpoint, 0)
+
+	node := m.ring.FindNode(key)
+	for len(preferenceList) < replication+1 {
+		// translate virtual node name to physical endpoint
+		endpoint := m.VNodes[node.GetName()]
+		if _, ok := set[endpoint]; !ok {
+			set[endpoint] = true
+			preferenceList = append(preferenceList, endpoint)
+		}
+		node = m.ring.FindSuccessorNode(node)
+	}
+	return preferenceList
+}
