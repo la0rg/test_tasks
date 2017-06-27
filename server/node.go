@@ -1,12 +1,12 @@
 package server
 
 import (
-	"log"
 	"net"
 
 	"github.com/la0rg/test_tasks/cache"
 	"github.com/la0rg/test_tasks/vector_clock"
 	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -44,13 +44,15 @@ func NewNode(address string, iport int) (*Node, error) {
 	}, nil
 }
 
-// coordinator initiated write
-func (n *Node) Put(key string, value *cache.CacheValue) {
-	// coordinator generates a vector clock for the new value
-	newVc := vector_clock.NewVc()
-	newVc.Incr(n.name)
+func (n *Node) CoordinatorPut(key string, value *cache.CacheValue, vc *vector_clock.VC) {
+
+	if vc == nil {
+		// coordinator generates a vector clock for the new value
+		vc = vector_clock.NewVc()
+	}
+	vc.Incr(n.name)
 	// write localy
-	n.cache.Set(key, value, newVc)
+	n.cache.Set(key, value, vc)
 	// write to WRITETO - 1 nodes
 	preferenceList := n.mbrship.FindPreferenceList(key, REPLICATION)
 	for _, endpoint := range preferenceList {

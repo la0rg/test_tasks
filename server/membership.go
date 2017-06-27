@@ -10,9 +10,12 @@ import (
 	"github.com/la0rg/test_tasks/vector_clock"
 	"github.com/pkg/errors"
 	"github.com/rs/xid"
+	log "github.com/sirupsen/logrus"
 )
 
 type Membership struct {
+	// Name contains address of the membership (current node)
+	// Can be used to check if an endpoint is on the same machine
 	Name string
 
 	// Partitioning and replication ranges are based on the Ring
@@ -233,4 +236,13 @@ func (m *Membership) FindPreferenceList(key string, replication int) []*Endpoint
 		node = m.ring.FindSuccessorNode(node)
 	}
 	return preferenceList
+}
+
+func (m *Membership) FindCoordinatorEndpoint(key string) *Endpoint {
+	vnodeName := m.ring.FindNode(key).GetName()
+	endpoint, ok := m.VNodes[vnodeName]
+	if !ok {
+		log.Fatalf("Internal state is corrupted: could not find endpoint by vnode name: %s", vnodeName)
+	}
+	return endpoint
 }

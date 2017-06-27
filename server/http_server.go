@@ -1,10 +1,14 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
 	"strconv"
 	"time"
 
@@ -113,8 +117,26 @@ func (s *HttpServer) Set(w http.ResponseWriter, r *http.Request, _ httprouter.Pa
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	log.Debugf("Set for the key: %s, following value: %v", key, value)
-	s.Node.Put(key, value)
+
+	// Forward request to the coordinator node for the specified key
+	coordinatorEndpoint := s.mbrship.FindCoordinatorEndpoint(key)
+	// This machine is a coordinator
+	if s.mbrship.Name == coordinatorEndpoint.Address.String() {
+		log.Debugf("Set for the key: %s, following value: %v", key, value)
+		s.CoordinatorPut(key, value, nil) // TODO: retrieve VC from the request
+		return
+	}
+
+	url, err := url.Parse(fmt.Sprintf("http://%s/", coordinatorEndpoint.Address.String()))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	r.Body = ioutil.NopCloser(bytes.NewBuffer(jsonBody)) // reset r.Body to make a proxy forwarding
+	proxy := httputil.NewSingleHostReverseProxy(url)
+	log.Debugf("Fowarding to coordinator with url: %v", url)
+	proxy.ServeHTTP(w, r)
 }
 
 func (s *HttpServer) Update(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
