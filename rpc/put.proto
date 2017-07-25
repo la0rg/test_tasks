@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package rpc;
+
+import "rpc/vector_clock.proto";
+
+service PutService {
+    rpc PutValue (GCacheValue) returns (GError);     
+}
+
+message GCacheValue {
+    GValue value = 1;
+    VC vector_clock = 2;
+}
+
+message GValue {
+    uint32 type = 1;
+    string gstring = 2;
+    repeated GValue glist = 3;
+    map<string, GValue> gmap = 4; 
+}
+
+message GError {
+    string error = 1;    
+}

@@ -50,6 +50,7 @@ func (n *Node) CoordinatorPut(key string, value *cache.CacheValue, vc *vector_cl
 		// coordinator generates a vector clock for the new value
 		vc = vector_clock.NewVc()
 	}
+	// increment VC only on coordinator node
 	vc.Incr(n.name)
 	// write localy
 	n.cache.Set(key, value, vc)
@@ -71,3 +72,27 @@ func (n *Node) CoordinatorPut(key string, value *cache.CacheValue, vc *vector_cl
 
 	// wait for WRITETO - 1 nodes
 }
+
+func (n *Node) put(key string, value *cache.CacheValue, vc *vector_clock.VC) {
+	// Read local value
+	// If local Version Vector descends incoming Version Vector ignore write (you’ve seen it!)
+	// If Incoming Version Vector descends local Version Vector overwrite local value with new one
+	// If Incoming Version Vector is concurrent with local Version Vector, merge values
+	clockedValue, ok := n.cache.Get(key)
+	if ok {
+		localVc := clockedValue.VC
+		switch vector_clock.Compare(localVc, vc) {
+		case 1: 
+			return // ignore
+		case 0:
+			if vector_clock.Equal(localVc, vc) {
+				break // overwrite value with equal vcs
+			}
+			// merging
+			switch 
+		}
+	}
+	n.cache.Set(key, value, vc)
+}
+
+//func (n *Node) PutValue(ctx context.Context, in *GCacheValue, opts ...grpc.CallOption) (*GError, error)

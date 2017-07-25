@@ -21,6 +21,8 @@ func (c *CacheValue) GetType() CType {
 func (c *CacheValue) SetString(value string) {
 	c.cType = STRING
 	c.StringValue = value
+	c.ListValue = nil
+	c.DictValue = nil
 }
 
 func (c *CacheValue) GetString() (string, error) {
@@ -33,6 +35,7 @@ func (c *CacheValue) GetString() (string, error) {
 func (c *CacheValue) SetList(value []CacheValue) {
 	c.cType = LIST
 	c.ListValue = value
+	c.DictValue = nil
 }
 
 func (c *CacheValue) GetList() ([]CacheValue, error) {
@@ -45,6 +48,7 @@ func (c *CacheValue) GetList() ([]CacheValue, error) {
 func (c *CacheValue) SetDict(value map[string]CacheValue) {
 	c.cType = DICT
 	c.DictValue = value
+	c.ListValue = nil
 }
 
 func (c *CacheValue) GetDict() (map[string]CacheValue, error) {
@@ -62,6 +66,36 @@ func (c *CacheValue) Set(value interface{}) error {
 		c.SetList(v)
 	case map[string]CacheValue:
 		c.SetDict(v)
+	default:
+		return TypeIsNotSupported
+	}
+	return nil
+}
+
+func (c *CacheValue) Merge(value *CacheValue) error {
+	switch value.cType {
+	case STRING:
+		if c.cType == STRING {
+			c.SetString(c.StringValue + ";merged;" + value.StringValue)
+		} else {
+			c.SetString(value.StringValue)
+		}
+	case LIST:
+		if c.cType == LIST {
+			for _, v := range value.ListValue {
+				c.ListValue = append(c.ListValue, v)
+			}
+		} else {
+			c.SetList(value.ListValue)
+		}
+	case DICT:
+		if c.cType == DICT {
+			for k, v := range value.DictValue {
+				c.DictValue[k] = v
+			}
+		} else {
+			c.SetDict(value.DictValue)
+		}
 	default:
 		return TypeIsNotSupported
 	}

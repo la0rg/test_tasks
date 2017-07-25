@@ -43,14 +43,18 @@ func main() {
 	gossipServer := server.NewGossipServer(node)
 	err = gossipServer.Seed(*seed)
 	fatalErr(err)
-	err = gossipServer.Start(*port)
+	gossipServer.StartGossipRoutine()
+
+	// grpc server
+	err = server.StartGrpcServer(*port, gossipServer)
 	fatalErr(err)
 
 	// stop
 	<-stop
 	log.Info("Shutting down the node..")
-	httpServer.Stop()
-	gossipServer.Stop()
+	err = httpServer.Stop()
+	fatalErr(err)
+	gossipServer.StopGossipRoutine()
 }
 
 func fatalErr(err error) {

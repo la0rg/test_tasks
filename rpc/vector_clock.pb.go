@@ -7,10 +7,14 @@ Package rpc is a generated protocol buffer package.
 It is generated from these files:
 	rpc/vector_clock.proto
 	rpc/gossip.proto
+	rpc/put.proto
 
 It has these top-level messages:
 	VC
 	Membership
+	GCacheValue
+	GValue
+	GError
 */
 package rpc
 

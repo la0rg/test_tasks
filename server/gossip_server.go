@@ -1,7 +1,6 @@
 package server
 
 import (
-	"fmt"
 	"net"
 	"time"
 
@@ -46,26 +45,13 @@ func (s GossipServer) Seed(address string) error {
 	return nil
 }
 
-func (s GossipServer) Start(port int) error {
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
-	if err != nil {
-		return err
-	}
-	grpcServer := grpc.NewServer()
-	rpc.RegisterGossipServiceServer(grpcServer, s)
-	log.Debugf("Start listening gossip on %d", port)
-	s.gossipRoutine()
-	go grpcServer.Serve(lis)
-	return nil
-}
-
-func (s GossipServer) Stop() {
+func (s GossipServer) StopGossipRoutine() {
 	if s.quiteChan != nil {
 		close(s.quiteChan)
 	}
 }
 
-func (s GossipServer) gossipRoutine() {
+func (s GossipServer) StartGossipRoutine() {
 	ticker := time.NewTicker(2 * time.Second)
 	s.quiteChan = make(chan struct{})
 	go func() {
