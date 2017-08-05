@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package rpc;
+
+import "rpc/vector_clock.proto";
+
+message Membership {
+    repeated Endpoint endpoints = 1;
+    map<string, Endpoint> vnodes = 2; 
+    VC vector_clock = 3; 
+}
+
+message Endpoint {
+        bytes ip = 1;
+        int32 port = 2;
+        int32 iport = 3;
+}

@@ -46,7 +46,7 @@ func main() {
 	gossipServer.StartGossipRoutine()
 
 	// grpc server
-	err = server.StartGrpcServer(*port, gossipServer)
+	err = server.StartGrpcServer(*port, gossipServer, node)
 	fatalErr(err)
 
 	// stop

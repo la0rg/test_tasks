@@ -1,6 +1,16 @@
 package cache
 
-import "errors"
+import (
+	"errors"
+
+	"github.com/la0rg/test_tasks/vector_clock"
+)
+
+// ClockedValue contains value and vector clock associated with it.
+type ClockedValue struct {
+	*CacheValue
+	*vector_clock.VC
+}
 
 type CacheValue struct {
 	cType       CType

@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package rpc;
+
+import "rpc/vector_clock.proto";
+
+service NodeService {
+    rpc Set (ClockedValue) returns (SetResult);     
+}
+
+message ClockedValue {
+    CacheValue value = 1;
+    VC vector_clock = 2;
+}
+
+message CacheValue {
+    uint32 c_type = 1;
+    string string_value = 2;
+    repeated CacheValue list_value = 3;
+    map<string, CacheValue> dict_value = 4; 
+}
+
+message SetResult {}

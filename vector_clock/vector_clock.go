@@ -15,6 +15,12 @@ func NewVc() *VC {
 	}
 }
 
+func NewVcWithExistingStore(store map[string]uint64) *VC {
+	return &VC{
+		Store: store,
+	}
+}
+
 func (vc *VC) Incr(node string) {
 	vc.mx.Lock()
 	vc.Store[node] = vc.Store[node] + 1

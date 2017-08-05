@@ -107,17 +107,17 @@ func (m *Membership) AddNode(name string, iport int, weight uint8) error {
 	return nil
 }
 
-func (m *Membership) ToRpc() *rpc.Membership {
+func (m *Membership) Proto() *rpc.Membership {
 	res := &rpc.Membership{
-		Endpoints: make([]*rpc.Membership_Endpoint, len(m.Endpoints)),
-		Vnodes:    make(map[string]*rpc.Membership_Endpoint, len(m.VNodes)),
+		Endpoints: make([]*rpc.Endpoint, len(m.Endpoints)),
+		Vnodes:    make(map[string]*rpc.Endpoint, len(m.VNodes)),
 		VectorClock: &rpc.VC{
 			Store: m.Vc.GetStore(),
 		},
 	}
 
 	for i, v := range m.Endpoints {
-		res.Endpoints[i] = &rpc.Membership_Endpoint{
+		res.Endpoints[i] = &rpc.Endpoint{
 			Ip:    v.Address.IP,
 			Port:  int32(v.Address.Port),
 			Iport: int32(v.IPort),
@@ -125,7 +125,7 @@ func (m *Membership) ToRpc() *rpc.Membership {
 	}
 
 	for k, v := range m.VNodes {
-		res.Vnodes[k] = &rpc.Membership_Endpoint{
+		res.Vnodes[k] = &rpc.Endpoint{
 			Ip:    v.Address.IP,
 			Port:  int32(v.Address.Port),
 			Iport: int32(v.IPort),
@@ -135,7 +135,7 @@ func (m *Membership) ToRpc() *rpc.Membership {
 	return res
 }
 
-func (m *Membership) MergeRpc(rpcMbr *rpc.Membership) {
+func (m *Membership) MergeProto(rpcMbr *rpc.Membership) {
 	vc := &vector_clock.VC{Store: rpcMbr.VectorClock.Store}
 	endpoints := make([]*Endpoint, 0)
 	for _, endpoint := range rpcMbr.Endpoints {
@@ -216,9 +216,8 @@ l1:
 	return updated
 }
 
-// The list of nodes that is responsible for storing a particular key.
-// To account for node failures, preference list contains more
-// than N nodes.
+// FindPreferenceList returns the list of nodes that is responsible for storing a particular key.
+// To account for node failures, preference list contains more than N nodes.
 // Preference list for a key is constructed by skipping positions in the
 // ring to ensure that the list contains only distinct physical nodes.
 func (m *Membership) FindPreferenceList(key string, replication int) []*Endpoint {

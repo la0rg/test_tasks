@@ -2,11 +2,17 @@ package server
 
 import (
 	"net"
+	"time"
+
+	"google.golang.org/grpc"
 
 	"github.com/la0rg/test_tasks/cache"
+	"github.com/la0rg/test_tasks/rpc"
+	"github.com/la0rg/test_tasks/util"
 	"github.com/la0rg/test_tasks/vector_clock"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/net/context"
 )
 
 const (
@@ -44,55 +50,63 @@ func NewNode(address string, iport int) (*Node, error) {
 	}, nil
 }
 
-func (n *Node) CoordinatorPut(key string, value *cache.CacheValue, vc *vector_clock.VC) {
+func (n *Node) CoordinatorPut(key string, value *cache.CacheValue, vc *vector_clock.VC) error {
 
 	if vc == nil {
 		// coordinator generates a vector clock for the new value
 		vc = vector_clock.NewVc()
 	}
-	// increment VC only on coordinator node
 	vc.Incr(n.name)
 	// write localy
 	n.cache.Set(key, value, vc)
-	// write to WRITETO - 1 nodes
-	preferenceList := n.mbrship.FindPreferenceList(key, REPLICATION)
-	for _, endpoint := range preferenceList {
-		log.Printf("endpoint = %+v\n", endpoint)
-	}
-	//for _, nodeName := range preferenceList {
-	//endpoint := n.mbrship.findEndpointByNodeName(nodeName)
-	//if endpoint == nil {
-	//// TODO: return err
-	//}
-	//// TODO: add filtration based on node availability
-	//go {
-	//// RPC CALL TO ENDPOINT FOR WRITE
-	//}()
-	//}
 
-	// wait for WRITETO - 1 nodes
+	// The coordinator sends the new version (along with the new vector clock) to
+	// the REPLICATION highest-ranked reachable nodes. If at least WRITETO-1 nodes respond then the write is considered successful.
+	preferenceList := n.mbrship.FindPreferenceList(key, REPLICATION)
+	done := make(chan struct{})
+	// Replicate to REPLICATION nodes
+	for _, endpoint := range preferenceList {
+
+		// do not replicate on itself
+		if endpoint.Address.String() == n.name {
+			continue
+		}
+
+		log.Debugf("Send Set to replica: %s", endpoint.Address.String())
+		// request Set on replica node
+		go func(endpoint *Endpoint) {
+			putRequest(endpoint)
+			done <- struct{}{}
+		}(endpoint)
+	}
+
+	timeout := util.WaitOnChanWithTimeout(done, WRITETO-1, time.Second)
+	if timeout {
+		return errors.New("Unsufficient number of replicas responed within a second")
+	}
+	return nil
 }
 
-func (n *Node) put(key string, value *cache.CacheValue, vc *vector_clock.VC) {
+func putRequest(endpoint *Endpoint) {
+	conn, err := grpc.Dial(endpoint.IAddress(), []grpc.DialOption{grpc.WithInsecure()}...)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer conn.Close()
+	client := rpc.NewNodeServiceClient(conn)
+	_, err = client.Set(context.Background(), &rpc.ClockedValue{})
+	if err != nil {
+		log.Fatalf("Replica Set goes wrong...%v", err)
+	}
+	log.Debugf("Got result from replica: %s", endpoint.Address.String())
+}
+
+func (n *Node) Set(ctx context.Context, value *rpc.ClockedValue) (*rpc.SetResult, error) {
+	log.Debug("Set method was called")
+	return &rpc.SetResult{}, nil
+
 	// Read local value
 	// If local Version Vector descends incoming Version Vector ignore write (you’ve seen it!)
 	// If Incoming Version Vector descends local Version Vector overwrite local value with new one
 	// If Incoming Version Vector is concurrent with local Version Vector, merge values
-	clockedValue, ok := n.cache.Get(key)
-	if ok {
-		localVc := clockedValue.VC
-		switch vector_clock.Compare(localVc, vc) {
-		case 1: 
-			return // ignore
-		case 0:
-			if vector_clock.Equal(localVc, vc) {
-				break // overwrite value with equal vcs
-			}
-			// merging
-			switch 
-		}
-	}
-	n.cache.Set(key, value, vc)
 }
-
-//func (n *Node) PutValue(ctx context.Context, in *GCacheValue, opts ...grpc.CallOption) (*GError, error)

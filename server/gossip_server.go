@@ -29,12 +29,12 @@ func (s GossipServer) ReqForMembership(ctx context.Context, in *rpc.Membership) 
 
 	// node requests membership for the first time and pass its membership to the seed node
 	if endpoints := in.GetEndpoints(); len(endpoints) == 1 {
-		s.mbrship.MergeRpc(in)
+		s.mbrship.MergeProto(in)
 		log.Debug("Merging incoming membership from the connected new node")
 	}
 
 	log.Debug("Answering for ReqForMembership")
-	return s.mbrship.ToRpc(), nil
+	return s.mbrship.Proto(), nil
 }
 
 func (s GossipServer) Seed(address string) error {
@@ -91,11 +91,11 @@ func (s GossipServer) gossipRequest(address string, membership *Membership) erro
 		}
 		defer conn.Close()
 		client := rpc.NewGossipServiceClient(conn)
-		membership, err := client.ReqForMembership(context.Background(), membership.ToRpc())
+		membership, err := client.ReqForMembership(context.Background(), membership.Proto())
 		if err != nil {
 			log.Error(errors.Wrap(err, "Problems on seeding round"))
 		}
-		s.mbrship.MergeRpc(membership)
+		s.mbrship.MergeProto(membership)
 	}()
 	return nil
 }

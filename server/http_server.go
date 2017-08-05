@@ -120,13 +120,18 @@ func (s *HttpServer) Set(w http.ResponseWriter, r *http.Request, _ httprouter.Pa
 
 	// Forward request to the coordinator node for the specified key
 	coordinatorEndpoint := s.mbrship.FindCoordinatorEndpoint(key)
+
 	// This machine is a coordinator
 	if s.mbrship.Name == coordinatorEndpoint.Address.String() {
 		log.Debugf("Set for the key: %s, following value: %v", key, value)
-		s.CoordinatorPut(key, value, nil) // TODO: retrieve VC from the request
+		err := s.CoordinatorPut(key, value, nil) // TODO: retrieve VC from the request
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
 		return
 	}
 
+	// Forward request to coordinator via reverse-proxy
 	url, err := url.Parse(fmt.Sprintf("http://%s/", coordinatorEndpoint.Address.String()))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

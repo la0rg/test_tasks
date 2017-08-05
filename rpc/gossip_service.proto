@@ -2,22 +2,11 @@ syntax = "proto3";
 
 package rpc;
 
-import "rpc/vector_clock.proto";
+import "rpc/membership.proto";
 
 service GossipService {
     // Request paremeter should be used only for the new nodes connecting to the seed node
     // to make the seed node aware of them.
     // Any gossip request for membership should be requested with default-membership (empty)
     rpc ReqForMembership (Membership) returns (Membership);    
-} 
-
-message Membership {
-    message Endpoint {
-        bytes ip = 1;
-        int32 port = 2;
-        int32 iport = 3;
-    }
-    repeated Endpoint endpoints = 1;
-    map<string, Endpoint> vnodes = 2; 
-    VC vector_clock = 3; 
 }
