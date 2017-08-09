@@ -74,6 +74,10 @@ func Merge(vc1, vc2 *VC) *VC {
 	return result
 }
 
+// Compare two vector clocks
+// if vc1 happens before vc2 returns -1
+// if vc2 happends before vc1 returns 1
+// otherwise returns 0
 func Compare(vc1, vc2 *VC) int {
 	if vc1.happensBefore(vc2) {
 		return -1

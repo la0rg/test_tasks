@@ -13,6 +13,7 @@ It is generated from these files:
 It has these top-level messages:
 	Membership
 	Endpoint
+	SetRequest
 	ClockedValue
 	CacheValue
 	SetResult

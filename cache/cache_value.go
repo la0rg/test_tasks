@@ -13,7 +13,7 @@ type ClockedValue struct {
 }
 
 type CacheValue struct {
-	cType       CType
+	CType       CType
 	StringValue string
 	ListValue   []CacheValue
 	DictValue   map[string]CacheValue
@@ -25,44 +25,44 @@ var (
 )
 
 func (c *CacheValue) GetType() CType {
-	return c.cType
+	return c.CType
 }
 
 func (c *CacheValue) SetString(value string) {
-	c.cType = STRING
+	c.CType = STRING
 	c.StringValue = value
 	c.ListValue = nil
 	c.DictValue = nil
 }
 
 func (c *CacheValue) GetString() (string, error) {
-	if c.cType != STRING {
+	if c.CType != STRING {
 		return "", ValueIsNotAccessable
 	}
 	return c.StringValue, nil
 }
 
 func (c *CacheValue) SetList(value []CacheValue) {
-	c.cType = LIST
+	c.CType = LIST
 	c.ListValue = value
 	c.DictValue = nil
 }
 
 func (c *CacheValue) GetList() ([]CacheValue, error) {
-	if c.cType != LIST {
+	if c.CType != LIST {
 		return nil, ValueIsNotAccessable
 	}
 	return c.ListValue, nil
 }
 
 func (c *CacheValue) SetDict(value map[string]CacheValue) {
-	c.cType = DICT
+	c.CType = DICT
 	c.DictValue = value
 	c.ListValue = nil
 }
 
 func (c *CacheValue) GetDict() (map[string]CacheValue, error) {
-	if c.cType != DICT {
+	if c.CType != DICT {
 		return nil, ValueIsNotAccessable
 	}
 	return c.DictValue, nil
@@ -83,15 +83,15 @@ func (c *CacheValue) Set(value interface{}) error {
 }
 
 func (c *CacheValue) Merge(value *CacheValue) error {
-	switch value.cType {
+	switch value.CType {
 	case STRING:
-		if c.cType == STRING {
+		if c.CType == STRING {
 			c.SetString(c.StringValue + ";merged;" + value.StringValue)
 		} else {
 			c.SetString(value.StringValue)
 		}
 	case LIST:
-		if c.cType == LIST {
+		if c.CType == LIST {
 			for _, v := range value.ListValue {
 				c.ListValue = append(c.ListValue, v)
 			}
@@ -99,7 +99,7 @@ func (c *CacheValue) Merge(value *CacheValue) error {
 			c.SetList(value.ListValue)
 		}
 	case DICT:
-		if c.cType == DICT {
+		if c.CType == DICT {
 			for k, v := range value.DictValue {
 				c.DictValue[k] = v
 			}

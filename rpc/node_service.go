@@ -2,6 +2,8 @@ package rpc
 
 import (
 	"github.com/la0rg/test_tasks/cache"
+
+	log "github.com/sirupsen/logrus"
 )
 
 // Go transforms proto struct to original go struct
@@ -15,6 +17,7 @@ func (m *ClockedValue) Go() *cache.ClockedValue {
 // Go transforms proto struct to original go struct
 func (value *CacheValue) Go() *cache.CacheValue {
 	cValue := &cache.CacheValue{}
+	log.Infof("Go() Ctype: %v %v", value.CType, cache.CType(value.CType))
 	switch cache.CType(value.CType) {
 	case cache.STRING:
 		cValue.SetString(value.StringValue)
@@ -30,6 +33,41 @@ func (value *CacheValue) Go() *cache.CacheValue {
 			dict[k] = *(v.Go())
 		}
 		cValue.SetDict(dict)
+	}
+	return cValue
+}
+
+type ProtoClockedValue cache.ClockedValue
+
+func (c ProtoClockedValue) Proto() *ClockedValue {
+	return &ClockedValue{
+		Value:       ProtoCacheValue(*c.CacheValue).Proto(),
+		VectorClock: &VC{c.VC.GetStore()},
+	}
+}
+
+type ProtoCacheValue cache.CacheValue
+
+func (c ProtoCacheValue) Proto() *CacheValue {
+	cValue := &CacheValue{}
+	switch c.CType {
+	case cache.STRING:
+		cValue.StringValue = c.StringValue
+		cValue.CType = uint32(cache.STRING)
+	case cache.LIST:
+		list := make([]*CacheValue, len(c.ListValue))
+		for i, v := range c.ListValue {
+			list[i] = ProtoCacheValue(v).Proto()
+		}
+		cValue.ListValue = list
+		cValue.CType = uint32(cache.LIST)
+	case cache.DICT:
+		dict := make(map[string]*CacheValue, len(c.DictValue))
+		for k, v := range c.DictValue {
+			dict[k] = ProtoCacheValue(v).Proto()
+		}
+		cValue.DictValue = dict
+		cValue.CType = uint32(cache.DICT)
 	}
 	return cValue
 }

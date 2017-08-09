@@ -5,7 +5,12 @@ package rpc;
 import "rpc/vector_clock.proto";
 
 service NodeService {
-    rpc Set (ClockedValue) returns (SetResult);     
+    rpc Set (SetRequest) returns (SetResult);     
+}
+
+message SetRequest {
+    string key = 1;
+    ClockedValue clocked_value = 2;
 }
 
 message ClockedValue {

@@ -72,10 +72,10 @@ func (n *Node) CoordinatorPut(key string, value *cache.CacheValue, vc *vector_cl
 			continue
 		}
 
-		log.Debugf("Send Set to replica: %s", endpoint.Address.String())
+		log.Debugf("Send Set to replica: %s", endpoint.IAddress())
 		// request Set on replica node
 		go func(endpoint *Endpoint) {
-			putRequest(endpoint)
+			putRequest(endpoint, key, cache.ClockedValue{value, vc})
 			done <- struct{}{}
 		}(endpoint)
 	}
@@ -87,26 +87,28 @@ func (n *Node) CoordinatorPut(key string, value *cache.CacheValue, vc *vector_cl
 	return nil
 }
 
-func putRequest(endpoint *Endpoint) {
+func putRequest(endpoint *Endpoint, key string, value cache.ClockedValue) {
 	conn, err := grpc.Dial(endpoint.IAddress(), []grpc.DialOption{grpc.WithInsecure()}...)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer conn.Close()
 	client := rpc.NewNodeServiceClient(conn)
-	_, err = client.Set(context.Background(), &rpc.ClockedValue{})
+	request := &rpc.SetRequest{Key: key, ClockedValue: rpc.ProtoClockedValue(value).Proto()}
+	log.Infof("Sending rpc request %v", request)
+	_, err = client.Set(context.Background(), request)
 	if err != nil {
 		log.Fatalf("Replica Set goes wrong...%v", err)
 	}
 	log.Debugf("Got result from replica: %s", endpoint.Address.String())
 }
 
-func (n *Node) Set(ctx context.Context, value *rpc.ClockedValue) (*rpc.SetResult, error) {
-	log.Debug("Set method was called")
-	return &rpc.SetResult{}, nil
+func (n *Node) Set(ctx context.Context, value *rpc.SetRequest) (*rpc.SetResult, error) {
+	log.Debugf("Set method was called %v", value)
 
-	// Read local value
-	// If local Version Vector descends incoming Version Vector ignore write (you’ve seen it!)
-	// If Incoming Version Vector descends local Version Vector overwrite local value with new one
-	// If Incoming Version Vector is concurrent with local Version Vector, merge values
+	goValue := value.ClockedValue.Go()
+
+	log.Debugf("Set method was called %v %v", *(goValue.CacheValue), *(goValue.VC))
+	n.cache.ReplicaSet(value.Key, goValue.CacheValue, goValue.VC, n.name)
+	return &rpc.SetResult{}, nil
 }
