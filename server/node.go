@@ -21,6 +21,11 @@ const (
 	READFROM    = 2
 )
 
+var (
+	ErrTimeout = errors.New("Insufficient number of replicas have responded within a second")
+	ErrCancel  = errors.New("Set request is canceled due to fail on replication")
+)
+
 const WEIGHT uint8 = 10
 
 type Node struct {
@@ -57,13 +62,12 @@ func (n *Node) CoordinatorPut(key string, value *cache.CacheValue, vc *vector_cl
 		vc = vector_clock.NewVc()
 	}
 	vc.Incr(n.name)
-	// write localy
-	n.cache.Set(key, value, vc)
 
 	// The coordinator sends the new version (along with the new vector clock) to
 	// the REPLICATION highest-ranked reachable nodes. If at least WRITETO-1 nodes respond then the write is considered successful.
 	preferenceList := n.mbrship.FindPreferenceList(key, REPLICATION)
 	done := make(chan struct{})
+	errs := make(chan error)
 	// Replicate to REPLICATION nodes
 	for _, endpoint := range preferenceList {
 
@@ -75,19 +79,43 @@ func (n *Node) CoordinatorPut(key string, value *cache.CacheValue, vc *vector_cl
 		log.Debugf("Send Set to replica: %s", endpoint.IAddress())
 		// request Set on replica node
 		go func(endpoint *Endpoint) {
-			putRequest(endpoint, key, cache.ClockedValue{value, vc})
-			done <- struct{}{}
+			if err := putRequest(endpoint, key, cache.ClockedValue{CacheValue: value, VC: vc}); err == nil {
+				done <- struct{}{}
+			} else {
+				errs <- err
+			}
 		}(endpoint)
 	}
 
-	timeout := util.WaitOnChanWithTimeout(done, WRITETO-1, time.Second)
-	if timeout {
-		return errors.New("Unsufficient number of replicas responed within a second")
+	// wait for replica responses with second timeout
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	// If number of errors is too much to get final success result cancel the context
+	// Prevents waiting for one second even if all replicas responded with errors
+	go func() {
+		for totalErrs := 0; totalErrs < len(preferenceList)-(WRITETO-1); totalErrs++ {
+			<-errs
+		}
+		cancel()
+	}()
+
+	err := util.WaitOnChan(ctx, done, WRITETO-1)
+	if err != nil {
+		switch err {
+		case context.Canceled:
+			return ErrCancel
+		case context.DeadlineExceeded:
+			return ErrTimeout
+		}
 	}
+
+	// write localy
+	n.cache.Set(key, value, vc)
 	return nil
 }
 
-func putRequest(endpoint *Endpoint, key string, value cache.ClockedValue) {
+func putRequest(endpoint *Endpoint, key string, value cache.ClockedValue) error {
 	conn, err := grpc.Dial(endpoint.IAddress(), []grpc.DialOption{grpc.WithInsecure()}...)
 	if err != nil {
 		log.Fatal(err)
@@ -95,20 +123,19 @@ func putRequest(endpoint *Endpoint, key string, value cache.ClockedValue) {
 	defer conn.Close()
 	client := rpc.NewNodeServiceClient(conn)
 	request := &rpc.SetRequest{Key: key, ClockedValue: rpc.ProtoClockedValue(value).Proto()}
-	log.Infof("Sending rpc request %v", request)
+	log.Debugf("Sending rpc request %v", request)
 	_, err = client.Set(context.Background(), request)
 	if err != nil {
-		log.Fatalf("Replica Set goes wrong...%v", err)
+		// TODO: check err; if it's connection problem set node state to unavailable
+		return err
 	}
 	log.Debugf("Got result from replica: %s", endpoint.Address.String())
+	return nil
 }
 
+// Set handles rpc call to node service
 func (n *Node) Set(ctx context.Context, value *rpc.SetRequest) (*rpc.SetResult, error) {
-	log.Debugf("Set method was called %v", value)
-
 	goValue := value.ClockedValue.Go()
-
-	log.Debugf("Set method was called %v %v", *(goValue.CacheValue), *(goValue.VC))
-	n.cache.ReplicaSet(value.Key, goValue.CacheValue, goValue.VC, n.name)
-	return &rpc.SetResult{}, nil
+	err := n.cache.Set(value.Key, goValue.CacheValue, goValue.VC)
+	return &rpc.SetResult{}, err
 }

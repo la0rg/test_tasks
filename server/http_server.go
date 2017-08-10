@@ -126,7 +126,11 @@ func (s *HttpServer) Set(w http.ResponseWriter, r *http.Request, _ httprouter.Pa
 		log.Debugf("Set for the key: %s, following value: %v", key, value)
 		err := s.CoordinatorPut(key, value, nil) // TODO: retrieve VC from the request
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			status := http.StatusInternalServerError
+			if err == ErrTimeout || err == ErrCancel {
+				status = http.StatusBadRequest
+			}
+			http.Error(w, err.Error(), status)
 		}
 		return
 	}
@@ -167,21 +171,3 @@ func (s *HttpServer) Endpoint(w http.ResponseWriter, r *http.Request, _ httprout
 	}
 	w.Write(v)
 }
-
-//func (s *HttpServer) AddEndpoint(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-//decoder := json.NewDecoder(r.Body)
-//var endpoints []Endpoint
-//err := decoder.Decode(&endpoints)
-//if err != nil {
-//panic(err)
-//}
-//defer r.Body.Close()
-//resp := NewRestResponse()
-//for _, endpoint := range endpoints {
-//err := s.mbrship.AddNode(endpoint.Address.String(), endpoint.IPort)
-//if err != nil {
-//resp.Error(err)
-//}
-//}
-//w.Write(resp.Build())
-//}

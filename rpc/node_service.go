@@ -2,8 +2,6 @@ package rpc
 
 import (
 	"github.com/la0rg/test_tasks/cache"
-
-	log "github.com/sirupsen/logrus"
 )
 
 // Go transforms proto struct to original go struct
@@ -17,7 +15,6 @@ func (m *ClockedValue) Go() *cache.ClockedValue {
 // Go transforms proto struct to original go struct
 func (value *CacheValue) Go() *cache.CacheValue {
 	cValue := &cache.CacheValue{}
-	log.Infof("Go() Ctype: %v %v", value.CType, cache.CType(value.CType))
 	switch cache.CType(value.CType) {
 	case cache.STRING:
 		cValue.SetString(value.StringValue)

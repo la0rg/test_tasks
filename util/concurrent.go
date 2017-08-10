@@ -1,42 +1,25 @@
 package util
 
 import (
-	"sync"
-	"time"
+	"context"
 )
 
-// WaitWithTimeout wait on the waitgroup and then returns false
-// if specified time is out then returns true
-func WaitWithTimeout(wg *sync.WaitGroup, timeout time.Duration) bool {
-	c := make(chan struct{})
-	go func() {
-		defer close(c)
-		wg.Wait()
-	}()
-
-	select {
-	case <-c:
-		return false
-	case <-time.After(timeout):
-		return true
-	}
-}
-
-// WaitOnChanWithTimeout waits to receieve count items from ch and returns false
-// or wait untill timeout and returns true
-func WaitOnChanWithTimeout(ch chan struct{}, count int, timeout time.Duration) bool {
+// WaitOnChan waits to receieve count items from ch and returns with no error
+// If ctx is done before enough messages were received returns an error
+func WaitOnChan(ctx context.Context, done chan struct{}, count int) error {
 	doneChannel := make(chan struct{})
+
 	go func() {
 		defer close(doneChannel)
 		for i := 0; i < count; i++ {
-			<-ch
+			<-done
 		}
 	}()
 
 	select {
 	case <-doneChannel:
-		return false
-	case <-time.After(timeout):
-		return true
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
 	}
 }
