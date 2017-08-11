@@ -98,6 +98,14 @@ func (s *HttpServer) Get(w http.ResponseWriter, r *http.Request, _ httprouter.Pa
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	// attache associated vector clock
+	encodedVc, err := util.EncodeVc(value.VC)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Add("VectorClock", encodedVc)
 	w.Write(v)
 }
 
